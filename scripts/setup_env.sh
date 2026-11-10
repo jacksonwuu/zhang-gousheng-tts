@@ -193,6 +193,13 @@ if [[ "$DOWNLOAD_MODELS" == "1" ]]; then
       echo "ERROR: model download failed; rerun to resume." >&2
       exit 1
     }
+  elif command -v uvx >/dev/null 2>&1; then
+    echo ">> downloading IndexTTS-2.5 via uvx + HuggingFace"
+    uvx --from huggingface-hub hf download \
+      IndexTeam/IndexTTS-2.5 --local-dir=checkpoints || {
+      echo "ERROR: model download failed; rerun to resume." >&2
+      exit 1
+    }
   else
     echo "ERROR: no model downloader found." >&2
     echo "  uv tool install huggingface-hub" >&2

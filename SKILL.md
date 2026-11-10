@@ -64,6 +64,10 @@ Run:
 If it reports `READY`, continue. If not, tell the user the resource cost and
 ask for approval before installing.
 
+If `uv` or `ffmpeg` is missing, install it yourself after approval (`brew` on
+macOS, `apt` on Debian/Ubuntu, or the official `uv` installer), then re-run the
+check. Do not hand those commands to the user.
+
 | Resource | Cost |
 |---|---:|
 | IndexTTS-2.5 checkpoints | about 8 GB |
