@@ -16,3 +16,4 @@ checkpoints/
 *.mp4
 *.mov
 generation_report.json
+*.zhang-gousheng.*

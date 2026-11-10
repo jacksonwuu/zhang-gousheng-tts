@@ -1,7 +1,7 @@
 # zhang-gousheng-tts
 
-用**自己的音色**，配合张狗剩式快节奏、短停顿、强动态的中文新闻解说风格，通过
-[IndexTTS 2.5](https://github.com/index-tts/index-tts) 生成讲解音频。
+把一份文档，变成**你自己的声音 + 张狗剩式快节奏、短停顿、强动态**的中文讲解音频。
+底层使用 [IndexTTS 2.5](https://github.com/index-tts/index-tts)。
 
 [English](README.en.md) | 中文
 
@@ -10,23 +10,84 @@
 ![IndexTTS](https://img.shields.io/badge/IndexTTS-2.5-orange)
 
 > **这不是张狗剩的音色克隆。**
-> 本项目只复刻节奏、停顿、动态和语气。`spk_audio_prompt` 必须使用你本人或已获授权
-> 的声音；`emo_audio_prompt` 只作为风格参考。不要用它冒充真实人物，也不要生成
-> 欺骗性内容。
+> 只复刻节奏、停顿、动态和语气。音色必须是你本人或已获授权的声音；风格参考只负责
+> 情绪和韵律。不要用它冒充真实人物，也不要生成欺骗性内容。
 
-## 能做什么
+## 给用户：只需要说一句话
 
-- 从视频或音频中提取 5–15 秒干净的人声参考
-- 用自己的音色 + 独立的情绪/风格参考生成中文 TTS
-- 调节 `emo_alpha`、语速、temperature、top-p/top-k、重复惩罚等参数
-- 用 JSONL 批量生成，并为每一行覆盖情绪、语速和情感向量
-- 自动记录完整参数、模型版本、输出和失败项，方便复现
-- 分析时长、F0、停顿、动态、频谱重心和 LUFS/LRA
-- 在安装前检查磁盘、内存、模型完整性和真实推理模块导入
+把文档发给 agent，然后说：
 
-## 重要资源提示
+> 用我的声音，把这份文档做成张狗剩那种节奏的讲解音频。
 
-安装或下载模型前必须先得到用户确认：
+第一次使用时，agent 只会再向你要两样东西：
+
+1. 一段 10–60 秒的本人说话样本，视频或音频都行；
+2. 对模型下载的确认，因为 IndexTTS 大约占 8 GB。
+
+之后每次只需要给文档。agent 会自己完成解析、分段、生成、拼接、转码，最后把
+WAV/MP3 和时长交给你。你不需要执行任何命令，也不需要安装 Python 包。
+
+### 支持的文件
+
+`txt`、`md`、`rst`、`csv`、`json`、`docx`、旧版 `doc`、`rtf`、文本型 `pdf`、
+`html`、`epub`、`srt`、`vtt`。扫描版 PDF 需要先 OCR。
+
+### 你会拿到什么
+
+- `<文档名>.zhang-gousheng.wav`：44.1 kHz / 24-bit
+- `<文档名>.zhang-gousheng.mp3`：192 kbps
+- `<文档名>.zhang-gousheng.json`：时长、参数、分段和完整复现信息
+
+默认输出在文档旁边；如果目录不可写，会落到 `~/Documents/zhang-gousheng-tts/`，
+再不可写则落到系统临时目录。最终路径以报告里的绝对路径为准。
+
+## 这适合什么场景
+
+- 长文章、公众号稿、课程讲稿直接转口播
+- 用自己的声音批量做短视频旁白
+- 同一篇稿子里，不同段落用不同情绪和语速
+- 从旧视频里提取一段干净人声，作为长期音色参考
+- 给已有文案快速试听节奏，再决定是否精修
+
+## 给 Agent：一键接入
+
+这个仓库是**通用 skill**，不绑定 Codex。任何能读取 `SKILL.md` 的 agent 都可以
+直接使用；只支持 `AGENTS.md` 的 runtime 也有入口。核心只有一个 agent 入口：
+
+```bash
+"$SKILL_DIR/scripts/zhang-tts" check
+"$SKILL_DIR/scripts/zhang-tts" setup --root "$HOME/index-tts" --download-models --yes
+"$SKILL_DIR/scripts/zhang-tts" configure --voice-source "/path/to/user-sample.mov"
+"$SKILL_DIR/scripts/zhang-tts" make "/path/to/document.docx"
+"$SKILL_DIR/scripts/zhang-tts" say "要读出来的文本"
+```
+
+这些命令是给 agent 用的，不要交给最终用户执行。
+
+### 安装到不同 runtime
+
+仓库本身放在哪里都可以，只要 agent 能读到 `SKILL.md`：
+
+```text
+Codex:        ~/.codex/skills/zhang-gousheng-tts
+Claude Code:  ~/.claude/skills/zhang-gousheng-tts
+其他 agent:   任意目录；让 agent 先读 SKILL.md 或 AGENTS.md
+```
+
+用软链接可以保持更新：
+
+```bash
+git clone https://github.com/jacksonwuu/zhang-gousheng-tts.git \
+  "$HOME/code/zhang-gousheng-tts"
+ln -sfn "$HOME/code/zhang-gousheng-tts" \
+  "$HOME/.codex/skills/zhang-gousheng-tts"   # Codex
+ln -sfn "$HOME/code/zhang-gousheng-tts" \
+  "$HOME/.claude/skills/zhang-gousheng-tts"  # Claude Code
+```
+
+### 首次安装
+
+IndexTTS 的资源成本必须先确认：
 
 | 项目 | 需求 |
 |---|---:|
@@ -36,197 +97,122 @@
 | 内存 | 16 GB 起步，32 GB 以上更稳 |
 | 30 秒音频的 CPU 生成时间 | 通常数分钟，约 5–8 倍实时 |
 
-`setup_env.sh` 在非交互环境默认拒绝安装。确认磁盘和资源成本后才使用 `--yes`。
-脚本还会硬性检查剩余磁盘，低于 20 GB 时直接停止。
-
-## 环境要求
-
-- Python 3.10–3.11
-- [uv](https://docs.astral.sh/uv/)
-- `ffmpeg` / `ffprobe`
-- 一个可用的 IndexTTS 2.5 checkout 和模型
-- macOS / Linux / WSL2；Windows 原生环境未实机验证
-
-## 安装 Skill
+确认后再运行安装。`setup` 会在缺少 checkout 时自动 clone IndexTTS，用 `uv`
+安装 WebUI 依赖，下载模型，然后做一次深度检查：
 
 ```bash
-git clone https://github.com/jacksonwuu/zhang-gousheng-tts.git \
-  "$HOME/code/zhang-gousheng-tts"
-mkdir -p "$HOME/.codex/skills"
-ln -sfn "$HOME/code/zhang-gousheng-tts" \
-  "$HOME/.codex/skills/zhang-gousheng-tts"
-```
-
-也可以用普通复制代替软链接，但以后更新时需要重新复制。
-
-## 安装 IndexTTS
-
-```bash
-git clone https://github.com/index-tts/index-tts.git "$HOME/index-tts"
-
-export INDEXTTS_ROOT="$HOME/index-tts"
-export SKILL_DIR="$HOME/.codex/skills/zhang-gousheng-tts"
-
-export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/uv-cache}"
-export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/mpl-cache}"
-export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-/tmp/numba-cache}"
-
-"$SKILL_DIR/scripts/setup_env.sh" \
-  --root "$INDEXTTS_ROOT" \
+"$SKILL_DIR/scripts/zhang-tts" setup \
+  --root "$HOME/index-tts" \
   --download-models \
   --yes
 ```
 
-macOS 默认只安装 WebUI 依赖：
+macOS 只安装 WebUI 依赖。不要使用 `uv sync --all-extras`，它可能拉取 NVIDIA
+CUDA 包。模型下载支持断点续传；网络失败后重跑同一条命令，不要先删
+`checkpoints/`。
 
-```text
-uv sync --extra webui
-```
-
-不要盲目使用 `--all-extras`，它可能拉取 NVIDIA CUDA 包。模型下载支持断点续传；
-网络失败后重新执行安装命令即可，不要先删除 `checkpoints/`。
-
-## 环境检查
-
-```bash
-"$SKILL_DIR/scripts/setup_env.sh" --check
-```
-
-或直接运行：
-
-```bash
-python3 "$SKILL_DIR/scripts/check_env.py" --root "$INDEXTTS_ROOT" --deep
-```
-
-检查包括：
-
-- Python、`uv`、`ffmpeg`、`ffprobe`
-- 模型关键文件及最低合理大小
-- `.venv`、可用磁盘、内存
-- `IndexTTS2` 推理模块的真实导入
-
-## 快速开始
-
-### 1. 准备你的音色参考
-
-```bash
-cd "$INDEXTTS_ROOT"
-
-uv run --frozen python "$SKILL_DIR/scripts/prepare_reference.py" \
-  --input "/path/to/your-video.mov" \
-  --output "outputs/voice_samples/user_voice_15s.wav"
-```
-
-优先使用单人、干声、无音乐、无混响的 10–15 秒素材。自动选段只依据响度，
-无法可靠识别背景音乐、多人声或混响；遇到这类素材时请试听并用 `--start` 手动指定。
-
-### 2. 准备风格参考
-
-```bash
-uv run --frozen python "$SKILL_DIR/scripts/prepare_reference.py" \
-  --input "/path/to/authorized-style-source.wav" \
-  --output "/tmp/zhang_style_15s.wav"
-```
-
-风格参考也必须确认授权。它只控制情绪和韵律，不用于提供音色。
-
-### 3. 生成
-
-```bash
-uv run --frozen python "$SKILL_DIR/scripts/generate.py" \
-  --text "很多人以为，声音克隆就是把一段录音丢给 AI，然后按下生成，完了。真不是。" \
-  --voice "outputs/voice_samples/user_voice_15s.wav" \
-  --style-reference "/tmp/zhang_style_15s.wav" \
-  --output "outputs/voice_samples/demo.wav" \
-  --report "outputs/voice_samples/demo.json"
-```
-
-成功后会输出 44.1 kHz / 24-bit WAV。中间 `.raw.wav` 默认删除；调试时使用
-`--keep-raw` 保留。JSON 报告会记录模型版本、参考文件、全部参数、输出和失败项。
-
-### 4. 分析结果
-
-```bash
-uv run --frozen python "$SKILL_DIR/scripts/analyze_audio.py" \
-  "outputs/voice_samples/demo.wav" \
-  --text "很多人以为，声音克隆就是把一段录音丢给 AI，然后按下生成，完了。真不是。" \
-  --loudnorm
-```
-
-可以查看 F0、停顿、动态、频谱重心、读音单元/分钟和 LUFS/LRA。
-
-## 推荐参数
-
-| 参数 | 默认值 | 作用 |
-|---|---:|---|
-| `emo_alpha` | `0.55` | 风格参考的影响强度 |
-| `duration_factor` | `1.10` | 数值越大越慢、越长 |
-| `temperature` | `0.86` | 变化量；过高会更不稳定 |
-| `top_p` | `0.91` | 采样范围 |
-| `top_k` | `45` | 采样候选数 |
-| `repetition_penalty` | `8.2` | 抑制重复和卡音 |
-| `max_text_tokens_per_segment` | `300` | 单段最大 token 数 |
-| `interval_silence` | `200` | 段间静音毫秒数 |
-
-调节顺序通常是：先改文本断句，再调 `duration_factor`，最后微调情绪和采样参数。
-不要通过移调强行模仿目标人物音高，那会破坏本人音色。
-
-完整声线档案和调参历史见
-[`references/zhang_gousheng.md`](references/zhang_gousheng.md)。
-
-## 批量生成
-
-创建 `manifest.jsonl`：
-
-```jsonl
-{"text":"第一段旁白。","output":"001.wav","emo_alpha":0.55,"duration_factor":1.10}
-{"text":"第二段更冲一点。","output":"002.wav","emo_alpha":0.62,"duration_factor":0.98}
-{"text":"第三段收稳。","output":"003.wav","emo_alpha":0.48,"duration_factor":1.12,"emo_vector":[0.08,0.02,0,0,0,0,0.05,0.65]}
-```
-
-生成：
-
-```bash
-uv run --frozen python "$SKILL_DIR/scripts/generate.py" \
-  --manifest "/path/to/manifest.jsonl" \
-  --voice "outputs/voice_samples/user_voice_15s.wav" \
-  --style-reference "/tmp/zhang_style_15s.wav" \
-  --output "outputs/voice_samples/batch" \
-  --continue-on-error
-```
-
-模型只加载一次。输出目录会生成 `generation_report.json`，记录每一行的参数和结果。
-输出路径被限制在批量目录内，带 `../` 或绝对路径的条目会被拒绝。
-
-## 环境变量
+### 环境变量
 
 | 变量 | 用途 |
 |---|---|
 | `INDEXTTS_ROOT` | IndexTTS 仓库路径 |
-| `SKILL_DIR` | 本 skill 路径 |
-| `ZHANG_STYLE_REFERENCE` | 默认风格参考 WAV |
-| `FFMPEG_BIN` | 自定义 ffmpeg 可执行文件 |
-| `UV_CACHE_DIR` | uv 缓存目录 |
-| `MPLCONFIGDIR` | Matplotlib 缓存目录 |
-| `NUMBA_CACHE_DIR` | Numba 编译缓存目录 |
+| `ZHANG_PROFILE` | 声音 profile，默认 `~/.config/zhang-gousheng-tts/profile.json` |
+| `ZHANG_OUTPUT_DIR` | 默认输出目录 |
+| `FFMPEG_BIN` | 自定义 ffmpeg |
+| `UV_CACHE_DIR` | uv 缓存 |
+| `MPLCONFIGDIR` | Matplotlib 缓存 |
+| `NUMBA_CACHE_DIR` | Numba 编译缓存 |
 
-在 Codex、CI 或其他沙箱中，建议把三个缓存都指向 `/tmp`。否则可能遇到
-`uv` 权限错误或 `cannot cache function ... no locator available`。
+在沙箱里运行时，建议把三个缓存都指向 `/tmp`，否则可能遇到 `uv` 权限错误或
+`cannot cache function ... no locator available`。
 
-## 隐私与合规
+## 进阶：同一篇稿子里换情绪和语速
 
-声音样本属于生物特征数据。请把参考音频、生成结果和个人文案保存在本地私有目录，
-不要提交到公开仓库。项目的 `.gitignore` 已排除 `outputs/`、`downloads/`、
-虚拟环境和 Python 缓存。
+在文档里单独放一行指令，后面的段落会继承它，直到出现下一条：
 
-- 只克隆你本人或明确授权的声音。
-- 不使用本项目冒充真实人物、制造虚假陈述或规避平台规则。
-- 公开使用前确认音色和风格参考的使用权。
-- 不再需要的参考音频和废弃生成结果应及时删除。
+```text
+[[emo_alpha=0.62 duration_factor=0.98]]
+这一段更冲，语速快一点。
 
-## 测试
+[[emo_alpha=0.45 duration_factor=1.18]]
+这一段收稳，停顿放长一点。
+```
+
+支持：`emo_alpha`、`duration_factor`（也可写 `speed`）、`temperature`、
+`top_p`、`top_k`、`repetition_penalty`。也可以直接给 8 维情绪向量：
+
+```text
+[[emo_vector=0.08 0.02 0 0 0 0 0.05 0.65]]
+```
+
+顺序是 `happy, angry, sad, afraid, disgusted, melancholic, surprised, calm`。
+大多数情况下，先调 `emo_alpha` 和 `duration_factor` 就够了。
+
+## 参数
+
+Profile 会在两条路线中选一条：
+
+| 参数 | 向量路线（默认，无需风格音频） | 参考路线（有授权风格音频） |
+|---|---:|---:|
+| `emo_alpha` | `0.35` | `0.55` |
+| `duration_factor` | `1.08` | `1.10` |
+| `temperature` | `0.85` | `0.86` |
+| `top_p` | `0.90` | `0.91` |
+| `top_k` | `40` | `45` |
+| `repetition_penalty` | `8.5` | `8.2` |
+
+通用默认：`max_text_tokens_per_segment=300`、`interval_silence=200`、
+`chunk_chars=500`、`pause_ms=250`。
+
+| 症状 | 先调什么 |
+|---|---|
+| 太像风格参考 | 把 `emo_alpha` 降到 `0.35–0.45` |
+| 太平、太客气 | 把 `emo_alpha` 升到 `0.55–0.65` |
+| 太快、赶 | 把 `duration_factor` 升到 `1.15–1.25` |
+| 太慢、没劲 | 把 `duration_factor` 降到 `0.95–1.05` |
+| 发音不稳 | 把 `temperature` 降到 `0.80–0.84` |
+| 重复、卡音 | 稍微提高 `repetition_penalty` |
+| 长文越读越飘 | 缩短分段，或在句中补标点 |
+
+不要为了贴近目标人物的 F0 去做移调，那会破坏本音。改 `emo_alpha` 重新生成。
+
+## 文本规则
+
+- 一个气口控制在 8–14 个汉字。
+- 想强调的词前面加逗号或句号。
+- 金句单独成句：`真不是。`
+- 多用口语钩子：`完了`、`说白了`、`你记住`。
+- 英文缩写可以加发音提示，例如 `<AI|EY2 . AY1>`。
+
+## 批量与维护者命令
+
+多条独立文案用 JSONL manifest，可以一次加载模型、逐条覆盖参数：
+
+```jsonl
+{"text":"第一段旁白。","output":"001.wav","emo_alpha":0.55,"duration_factor":1.10}
+{"text":"第二段更冲一点。","output":"002.wav","emo_alpha":0.62,"duration_factor":0.98}
+```
 
 ```bash
+cd "$INDEXTTS_ROOT"
+uv run --frozen python "$SKILL_DIR/scripts/generate.py" \
+  --manifest "/path/to/manifest.jsonl" \
+  --voice "$HOME/.config/zhang-gousheng-tts/voice_15s.wav" \
+  --emo-vector "[0.08,0.02,0,0,0,0,0.05,0.65]" \
+  --output "/path/to/out" \
+  --report "/path/to/out/report.json" \
+  --continue-on-error
+```
+
+有授权风格音频时，把 `--emo-vector` 换成
+`--style-reference "/path/to/style_15s.wav"`。两者同时给时，IndexTTS 会优先
+使用向量，风格音频不参与。
+
+## 环境检查与测试
+
+```bash
+"$SKILL_DIR/scripts/zhang-tts" check
+
 UV_CACHE_DIR=/tmp/uv-cache \
 MPLCONFIGDIR=/tmp/mpl-cache \
 NUMBA_CACHE_DIR=/tmp/numba-cache \
@@ -234,37 +220,48 @@ uv run --project "$INDEXTTS_ROOT" --frozen \
   python -m unittest discover -s "$SKILL_DIR/tests" -v
 ```
 
-当前测试覆盖参数范围、批量输出路径安全、静音/长音频选段和读音单元统计。
+测试覆盖参数范围、批量输出路径安全、文档解析、分段指令、静音/长音频选段和
+读音单元统计。
+
+## 隐私与合规
+
+声音样本属于生物特征数据。参考音频、原始文档和生成结果都应保存在本地私有目录，
+不要提交到公开仓库。项目的 `.gitignore` 已排除音频、视频、`outputs/`、
+`downloads/`、模型和虚拟环境。
+
+- 只克隆你本人或明确授权的声音。
+- 不使用本项目冒充真实人物、制造虚假陈述或规避平台规则。
+- 公开使用前确认音色和风格参考的使用权。
+- 不再需要的参考音频和废弃生成结果应及时删除。
 
 ## 项目结构
 
 ```text
 .
-├── SKILL.md
+├── SKILL.md                    # 通用 agent 契约
+├── AGENTS.md                   # 不支持 skill 的 agent 入口
 ├── README.md
 ├── README.en.md
-├── LICENSE
-├── CONTRIBUTING.md
-├── SECURITY.md
 ├── scripts/
+│   ├── zhang-tts               # 一键入口（agent 调用）
 │   ├── check_env.py
 │   ├── setup_env.sh
+│   ├── configure_profile.py
 │   ├── prepare_reference.py
+│   ├── make_audio.py
 │   ├── generate.py
 │   └── analyze_audio.py
 ├── references/
 │   ├── zhang_gousheng.md
 │   └── installation.md
 ├── tests/
-│   └── test_scripts.py
 └── evals/
-    └── evals.json
 ```
 
 ## 第三方依赖与许可证
 
-本项目只包含 skill 脚本和文档，不包含 IndexTTS 权重、示例视频、用户声音或生成音频。
-IndexTTS 及其模型受上游项目自己的许可证约束，请在使用前阅读
+本项目只包含 skill 脚本和文档，不包含 IndexTTS 权重、示例视频、用户声音或生成
+音频。IndexTTS 及其模型受上游项目自己的许可证约束，请在使用前阅读
 [index-tts](https://github.com/index-tts/index-tts) 和
 [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5) 的许可条款。
 

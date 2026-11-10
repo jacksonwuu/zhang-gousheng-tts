@@ -29,12 +29,6 @@ os.environ.setdefault("NUMBA_CACHE_DIR", "/tmp/numba-cache")
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl-cache")
 
 ROOT = default_indextts_root()
-DEFAULT_STYLE = Path(
-    os.environ.get(
-        "ZHANG_STYLE_REFERENCE",
-        ROOT / "downloads/zhang_style_15s.wav",
-    )
-).expanduser()
 INVOCATION_CWD = Path.cwd()
 
 
@@ -271,7 +265,9 @@ def normalize_manifest(
 
     normalized: list[dict[str, Any]] = []
     outputs: set[Path] = set()
-    protected = {args.voice.resolve(), args.style_reference.resolve()}
+    protected = {args.voice.resolve()}
+    if args.style_reference is not None:
+        protected.add(args.style_reference.resolve())
 
     for index, item in enumerate(raw_items, 1):
         text = item.get("text")
@@ -389,8 +385,9 @@ def main() -> None:
     parser.add_argument(
         "--style-reference",
         type=Path,
-        default=DEFAULT_STYLE,
-        help="10-15 second target-style clip used as emo_audio_prompt.",
+        default=None,
+        help="Optional 10-15 second authorized style clip used as "
+        "emo_audio_prompt. Omit when using --emo-vector.",
     )
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--report", type=Path)
@@ -427,7 +424,12 @@ def main() -> None:
     args = parser.parse_args()
 
     args.voice = absolute_path(args.voice)
-    args.style_reference = absolute_path(args.style_reference)
+    if args.style_reference is None and os.environ.get("ZHANG_STYLE_REFERENCE"):
+        args.style_reference = Path(
+            os.environ["ZHANG_STYLE_REFERENCE"]
+        ).expanduser()
+    if args.style_reference is not None:
+        args.style_reference = absolute_path(args.style_reference)
     args.output = absolute_path(args.output)
     if args.report is not None:
         args.report = absolute_path(args.report)
@@ -438,18 +440,23 @@ def main() -> None:
 
     if not args.voice.exists():
         raise SystemExit(f"Voice reference not found: {args.voice}")
-    if not args.style_reference.exists():
+    if args.style_reference is not None and not args.style_reference.exists():
         raise SystemExit(
             "Style reference not found: "
             f"{args.style_reference}\n"
             "Prepare one with prepare_reference.py or pass --style-reference."
         )
-    if args.voice.resolve() == args.style_reference.resolve():
+    if (
+        args.style_reference is not None
+        and args.voice.resolve() == args.style_reference.resolve()
+    ):
         raise SystemExit(
             "Voice and style reference must be different files: "
             "voice supplies timbre; style supplies delivery."
         )
-    protected_paths = {args.voice.resolve(), args.style_reference.resolve()}
+    protected_paths = {args.voice.resolve()}
+    if args.style_reference is not None:
+        protected_paths.add(args.style_reference.resolve())
     if args.report is not None and args.report.resolve() in protected_paths:
         raise SystemExit("--report would overwrite a reference file")
     if not (ROOT / "checkpoints").is_dir():
@@ -473,7 +480,8 @@ def main() -> None:
             emo_vector=args.emo_vector,
         )
         inspect_reference(args.voice, "Voice reference")
-        inspect_reference(args.style_reference, "Style reference")
+        if args.style_reference is not None:
+            inspect_reference(args.style_reference, "Style reference")
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
 
@@ -482,12 +490,14 @@ def main() -> None:
         raise SystemExit("Text is empty")
 
     if text is not None:
+        if args.style_reference is None and args.emo_vector is None:
+            raise SystemExit(
+                "Provide a style reference or an emotion vector. "
+                "Run configure_profile.py once to create a reusable profile."
+            )
         if args.output.suffix.lower() != ".wav":
             raise SystemExit("--output must end in .wav for single-text mode")
-        if args.output.resolve() in {
-            args.voice.resolve(),
-            args.style_reference.resolve(),
-        }:
+        if args.output.resolve() in protected_paths:
             raise SystemExit("Output would overwrite a reference file")
         raw_output = args.output.with_name(args.output.stem + ".raw.wav")
         if not args.no_master and raw_output.resolve() in protected_paths:
@@ -559,7 +569,11 @@ def main() -> None:
             text=job["text"],
             lang=job["lang"],
             output_path=str(raw_path),
-            emo_audio_prompt=str(args.style_reference),
+            emo_audio_prompt=(
+                str(args.style_reference)
+                if args.style_reference is not None
+                else None
+            ),
             emo_alpha=job["emo_alpha"],
             emo_vector=job["emo_vector"],
             duration_factor=job["duration_factor"],
@@ -589,7 +603,11 @@ def main() -> None:
             "parameters": {
                 "model_version": model_version,
                 "voice": str(args.voice),
-                "style_reference": str(args.style_reference),
+                "style_reference": (
+                    str(args.style_reference)
+                    if args.style_reference is not None
+                    else None
+                ),
                 "device": args.device,
                 "lang": job["lang"],
                 "emo_alpha": job["emo_alpha"],

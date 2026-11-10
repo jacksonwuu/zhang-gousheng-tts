@@ -4,19 +4,19 @@
     {
       "id": 1,
       "prompt": "我发你一个 mov，里面是我自己说话。帮我把声音提成 15 秒参考，然后用张狗剩那种快节奏、短停顿、有点痞的新闻解说风格，把这段文案读出来：很多人以为声音克隆就是把录音丢给 AI，其实真不是。",
-      "expected_output": "生成一个用户本人音色的 WAV，风格接近张狗剩式快节奏旁白，并报告使用的 emo_alpha、duration_factor 和基本音频指标。",
+      "expected_output": "Agent 自己配置 profile 并生成用户本人音色的 WAV；不要求用户执行命令，最终返回音频路径、时长和风格参数。",
       "files": []
     },
     {
       "id": 2,
       "prompt": "这条视频有点长，前面还有音乐。别整条丢给模型，帮我自动找一段最干净的 15 秒人声，做成参考音频。",
-      "expected_output": "调用 prepare_reference.py，输出 10-15 秒、单人、无明显静音段的 44.1kHz WAV，并说明选取的时间窗口。",
+      "expected_output": "调用参考提取流程，输出 10-15 秒、单人、无明显静音段的 44.1kHz WAV，并说明选取的时间窗口；如选到音乐，建议用 --voice-start 指定区间。",
       "files": []
     },
     {
       "id": 3,
-      "prompt": "我有 8 条口播文案，想全部用我自己的声音，但开头两条要更冲，后面几条稳一点。帮我批量生成，并且每条记录参数。",
-      "expected_output": "生成 manifest.jsonl，使用 generate.py 的 --manifest 模式批量输出 WAV，每条允许覆盖 emo_alpha 和 duration_factor，并返回输出清单。",
+      "prompt": "这是我一篇 5000 字的公众号文章，用我的声音做成音频。开头要更冲，后半段稳一点。",
+      "expected_output": "用户只提供文档；Agent 自动解析、分段，在文档或 manifest 中加入 emo_alpha/duration_factor 指令，生成一个完整 WAV/MP3，并返回时长和报告，不把命令教程丢给用户。",
       "files": []
     },
     {
@@ -28,7 +28,25 @@
     {
       "id": 5,
       "prompt": "我这条视频前面有背景音乐，中间还有别人说话，你直接自动剪 15 秒给我。",
-      "expected_output": "说明自动选段只按响度判断，无法可靠区分音乐和多人声；输出候选窗口及其 speech_ratio/削波/峰值，建议试听并用 --start 指定干净区间。",
+      "expected_output": "说明自动选段只按响度判断，无法可靠区分音乐和多人声；输出候选窗口及 speech_ratio/削波/峰值，建议试听并手动指定干净区间。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "我没有张狗剩的音频，也不想再找第二个样本。能不能只给我自己的声音，做成那种快节奏讲解？",
+      "expected_output": "使用 profile 的向量路线，不需要第二个风格样本；说明 emo_alpha、duration_factor 和 emo_vector 的默认值，生成并返回音频。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "我在用 Claude Code / 另一个 agent，不是 Codex。这个 skill 能用吗？",
+      "expected_output": "说明这是基于 SKILL.md 和 scripts/zhang-tts 的通用 skill，不依赖 Codex；给出对应 runtime 的 skill 目录或让 agent 直接读取 SKILL.md/AGENTS.md，仍由 agent 执行命令。",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "这份 PDF 扫描件帮我直接读成音频。",
+      "expected_output": "先检查 PDF 是否有文本层；扫描件说明需要 OCR，不假装提取成功。文本型 PDF 通过临时 pypdf 环境处理，不修改 IndexTTS 锁文件。",
       "files": []
     }
   ]

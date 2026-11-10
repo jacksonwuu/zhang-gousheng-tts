@@ -20,11 +20,16 @@ uv run --project "${INDEXTTS_ROOT:?set INDEXTTS_ROOT}" --frozen \
   python -m unittest discover -s tests -v
 ```
 
-Validate the skill structure with your Codex `skill-creator` installation:
+Validate the skill structure with any `skill-creator` installation that
+supports SKILL.md, for example:
 
 ```bash
 python3 "$HOME/.codex/skills/skill-creator/scripts/quick_validate.py" .
+# or the equivalent path in Claude Code / another runtime
 ```
+
+The runtime must be able to read `SKILL.md`; `AGENTS.md` is the fallback entry
+for agents without skill discovery.
 
 ## Pull requests
 

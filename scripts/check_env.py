@@ -47,13 +47,32 @@ OPTIONAL_FILES = {
 }
 
 
+def default_profile_path() -> Path:
+    return Path(
+        os.environ.get(
+            "ZHANG_PROFILE",
+            Path.home() / ".config/zhang-gousheng-tts/profile.json",
+        )
+    ).expanduser()
+
+
 def default_indextts_root() -> Path:
     configured = os.environ.get("INDEXTTS_ROOT")
     if configured:
         return Path(configured).expanduser()
+    try:
+        profile = json.loads(default_profile_path().read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        profile = {}
+    saved_root = profile.get("indextts_root") if isinstance(profile, dict) else None
+    if saved_root:
+        return Path(str(saved_root)).expanduser()
     candidates = [
-        Path.home() / "Desktop/repo/index-tts",
         Path.home() / "index-tts",
+        Path.home() / "code/index-tts",
+        Path.home() / "repos/index-tts",
+        Path.home() / "src/index-tts",
+        Path.home() / "Desktop/repo/index-tts",
         Path.cwd() / "index-tts",
         Path.cwd(),
     ]

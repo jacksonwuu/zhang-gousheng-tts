@@ -1,13 +1,25 @@
 # Installation and Environment
 
-The skill has two separate environments:
+This is a portable skill. It does not depend on Codex. Any runtime that can
+read `SKILL.md` can use the same files; `AGENTS.md` is the fallback entry.
 
-1. The skill project: Markdown + Python scripts in a checkout such as
-   `~/code/zhang-gousheng-tts`. The global skill directory should link to this
-   project so Codex can discover it.
-2. The IndexTTS runtime: a cloned `index-tts` repository with `uv`, `.venv`, and IndexTTS-2.5 checkpoints.
+There are two separate environments:
 
-Do not install IndexTTS into the system Python. Use `uv`.
+1. The skill project: Markdown + Python scripts in any checkout. Link or copy
+   it into the runtime's skill directory when the runtime has one.
+2. The IndexTTS runtime: a cloned `index-tts` repository with `uv`, `.venv`,
+   and IndexTTS-2.5 checkpoints.
+
+Do not install IndexTTS into the system Python. Use `uv`. The normal path is
+the agent-facing wrapper, which clones, installs, configures, and renders
+without asking the user to run commands:
+
+```bash
+"$SKILL_DIR/scripts/zhang-tts" check
+"$SKILL_DIR/scripts/zhang-tts" setup --root "$HOME/index-tts" --download-models --yes
+"$SKILL_DIR/scripts/zhang-tts" configure --voice-source "/path/to/user-sample.mov"
+"$SKILL_DIR/scripts/zhang-tts" make "/path/to/document.docx"
+```
 
 Set writable tool caches before checking or generating:
 
@@ -17,7 +29,7 @@ export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/mpl-cache}"
 export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-/tmp/numba-cache}"
 ```
 
-`NUMBA_CACHE_DIR` is required when Codex or another sandbox prevents writes to
+`NUMBA_CACHE_DIR` is required when a sandbox prevents writes to
 `.venv/lib/.../__pycache__`. Without it, importing `IndexTTS2` can fail with
 `cannot cache function ... no locator available`.
 
@@ -53,15 +65,13 @@ exists; this allows a partial checkpoint directory to repair itself.
 ## One-command check
 
 ```bash
-export SKILL_DIR="${SKILL_DIR:-$HOME/.codex/skills/zhang-gousheng-tts}"
-python3 "$SKILL_DIR/scripts/check_env.py" \
-  --deep
+"$SKILL_DIR/scripts/zhang-tts" check
 ```
 
 Or:
 
 ```bash
-"$SKILL_DIR/scripts/setup_env.sh" --check
+python3 "$SKILL_DIR/scripts/check_env.py" --root "$INDEXTTS_ROOT" --deep
 ```
 
 The check validates:
@@ -167,7 +177,8 @@ export UV_CACHE_DIR=/tmp/uv-cache
 export MPLCONFIGDIR=/tmp/mpl-cache
 ```
 
-This is common in Codex sandboxes and CI containers. The `check_env.py` deep check sets these defaults for its own subprocesses.
+This is common in agent sandboxes and CI containers. The `check_env.py` deep
+check sets these defaults for its own subprocesses.
 
 ## Disk and model size
 
@@ -221,6 +232,15 @@ export NUMBA_CACHE_DIR=/tmp/numba-cache
 The selector uses loudness, not speech recognition. It reports the chosen
 window, speech ratio, clipping, and peak. Listen to the result and rerun with
 `--start` when the source has music, multiple speakers, or long reverb.
+
+**PDF input says `pypdf` is missing**
+Use `scripts/zhang-tts make`. The wrapper runs PDF jobs through
+`uv run --project "$INDEXTTS_ROOT" --frozen --with pypdf`, so the IndexTTS lock
+file is not modified. If the PDF has no text layer, run OCR first.
+
+**Legacy `.doc` / `.rtf` input fails**
+On macOS the wrapper uses `/usr/bin/textutil`. On Linux, convert to `.docx`,
+`.pdf`, `.md`, or `.txt` first.
 
 **Generation is slow**
 CPU inference is roughly 5–8x real time on this machine. A 30-second clip can take several minutes. This is expected.

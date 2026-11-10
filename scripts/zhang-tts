@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+# Agent-facing one-click entry for zhang-gousheng-tts.
+# The end user should never need to run this file directly.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+export SKILL_DIR
+export ZHANG_PROFILE="${ZHANG_PROFILE:-$HOME/.config/zhang-gousheng-tts/profile.json}"
+export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/uv-cache}"
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/mpl-cache}"
+export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-/tmp/numba-cache}"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/miniforge3/bin:$HOME/miniconda3/bin:$HOME/opt/anaconda3/bin:$PATH"
+
+usage() {
+  cat <<'EOF'
+Agent entry:
+  zhang-tts check
+  zhang-tts setup [--root PATH] [--download-models] [--yes]
+  zhang-tts configure --voice-source FILE [--style-source FILE]
+  zhang-tts make DOCUMENT [make_audio options]
+  zhang-tts say "TEXT" [make_audio options]
+
+The end user only provides a document (and once, a voice sample). Do not ask
+them to run these commands; run them yourself and return the final audio.
+EOF
+}
+
+find_uv() {
+  if command -v uv >/dev/null 2>&1; then
+    command -v uv
+    return 0
+  fi
+  for candidate in \
+    "$HOME/.local/bin/uv" \
+    /opt/homebrew/bin/uv \
+    /usr/local/bin/uv \
+    "$HOME/miniforge3/bin/uv" \
+    "$HOME/miniconda3/bin/uv"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+UV="$(find_uv || true)"
+ROOT="${INDEXTTS_ROOT:-}"
+
+if [[ -z "$ROOT" && -f "$ZHANG_PROFILE" ]]; then
+  ROOT="$(python3 - "$ZHANG_PROFILE" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    data = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    data = {}
+print(data.get("indextts_root") or "")
+PY
+)"
+fi
+
+if [[ -z "$ROOT" ]]; then
+  for candidate in \
+    "$HOME/index-tts" \
+    "$HOME/code/index-tts" \
+    "$HOME/repos/index-tts" \
+    "$HOME/src/index-tts" \
+    "$HOME/Desktop/repo/index-tts" \
+    "$PWD/index-tts" \
+    "$PWD"; do
+    if [[ -f "$candidate/pyproject.toml" ]]; then
+      ROOT="$candidate"
+      break
+    fi
+  done
+fi
+ROOT="${ROOT:-$HOME/index-tts}"
+export INDEXTTS_ROOT="$ROOT"
+
+project_python() {
+  if [[ -x "$ROOT/.venv/bin/python" ]]; then
+    printf '%s\n' "$ROOT/.venv/bin/python"
+  fi
+}
+
+run_py() {
+  local python_bin
+  python_bin="$(project_python || true)"
+  if [[ -n "$python_bin" ]]; then
+    "$python_bin" "$@"
+  elif [[ -n "$UV" && -f "$ROOT/pyproject.toml" ]]; then
+    "$UV" run --project "$ROOT" --frozen python "$@"
+  else
+    python3 "$@"
+  fi
+}
+
+needs_pdf_reader() {
+  local arg
+  local lower
+  for arg in "$@"; do
+    lower="$(printf '%s' "$arg" | tr '[:upper:]' '[:lower:]')"
+    case "$lower" in
+      *.pdf) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+run_document_script() {
+  local python_bin
+  python_bin="$(project_python || true)"
+  if needs_pdf_reader "$@"; then
+    if [[ -z "$python_bin" ]] || ! "$python_bin" -c "import pypdf" >/dev/null 2>&1; then
+      if [[ -z "$UV" ]]; then
+        echo "ERROR: pypdf is required for PDF input and uv is unavailable." >&2
+        exit 1
+      fi
+      "$UV" run --project "$ROOT" --frozen --with pypdf python "$@"
+      return
+    fi
+  fi
+  run_py "$@"
+}
+
+require_root() {
+  if [[ ! -f "$ROOT/pyproject.toml" ]]; then
+    echo "ERROR: IndexTTS checkout not found at $ROOT" >&2
+    echo "Run: $SCRIPT_DIR/zhang-tts setup --download-models --yes" >&2
+    exit 1
+  fi
+}
+
+command="${1:-}"
+if [[ -z "$command" ]]; then
+  usage
+  exit 2
+fi
+shift
+
+case "$command" in
+  check|doctor)
+    python3 "$SCRIPT_DIR/check_env.py" --root "$ROOT" --deep "$@"
+    ;;
+  setup|install)
+    extra=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --root)
+          ROOT="$2"
+          export INDEXTTS_ROOT="$ROOT"
+          shift 2
+          ;;
+        --check)
+          python3 "$SCRIPT_DIR/check_env.py" --root "$ROOT" --deep
+          exit $?
+          ;;
+        *)
+          extra+=("$1")
+          shift
+          ;;
+      esac
+    done
+    if [[ ! -f "$ROOT/pyproject.toml" ]]; then
+      echo ">> cloning IndexTTS into $ROOT" >&2
+      mkdir -p "$(dirname "$ROOT")"
+      git clone https://github.com/index-tts/index-tts.git "$ROOT"
+    fi
+    "$SCRIPT_DIR/setup_env.sh" --root "$ROOT" ${extra[@]+"${extra[@]}"}
+    ;;
+  configure)
+    require_root
+    run_py "$SCRIPT_DIR/configure_profile.py" \
+      --indextts-root "$ROOT" \
+      --profile "$ZHANG_PROFILE" \
+      "$@"
+    ;;
+  make)
+    require_root
+    run_document_script "$SCRIPT_DIR/make_audio.py" \
+      --profile "$ZHANG_PROFILE" \
+      "$@"
+    ;;
+  say)
+    require_root
+    if [[ $# -lt 1 ]]; then
+      usage
+      exit 2
+    fi
+    text="$1"
+    shift
+    has_output=0
+    for arg in "$@"; do
+      case "$arg" in
+        --output|--output=*) has_output=1 ;;
+      esac
+    done
+    temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/zhang-tts-say.XXXXXX")"
+    printf '%s\n' "$text" > "$temp_dir/say.txt"
+    extra=()
+    if [[ "$has_output" == "0" ]]; then
+      stamp="$(date +%Y%m%d-%H%M%S)"
+      extra=(--output "$HOME/Documents/zhang-gousheng-tts/zhang-say-$stamp")
+    fi
+    run_document_script "$SCRIPT_DIR/make_audio.py" \
+      --profile "$ZHANG_PROFILE" \
+      "$temp_dir/say.txt" \
+      ${extra[@]+"${extra[@]}"} \
+      "$@"
+    rm -rf "$temp_dir"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    echo "Unknown command: $command" >&2
+    usage
+    exit 2
+    ;;
+esac
