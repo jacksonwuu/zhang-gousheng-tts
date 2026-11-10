@@ -144,6 +144,10 @@ def main() -> None:
     extract_reference(
         voice_source, voice_path, args.voice_start, "--voice-start"
     )
+    try:
+        os.chmod(voice_path, 0o600)
+    except OSError:
+        pass
 
     style_path: Path | None = None
     if style_source:
@@ -151,6 +155,10 @@ def main() -> None:
         extract_reference(
             style_source, style_path, args.style_start, "--style-start"
         )
+        try:
+            os.chmod(style_path, 0o600)
+        except OSError:
+            pass
         mode_defaults = REFERENCE_DEFAULTS
     else:
         mode_defaults = VECTOR_DEFAULTS
