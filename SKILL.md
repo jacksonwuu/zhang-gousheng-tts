@@ -53,6 +53,52 @@ repository path and tell it to read this file first.
 - Voice samples, documents, and generated audio are private. Keep them local
   and out of public repositories.
 
+## What the Zhang Gousheng style sounds like
+
+It is **not** a deep "radio voice" and **not** a calm news-anchor read. The
+target is a fast, slightly wry explainer who knows the subject, sounds relaxed,
+and talks to one person rather than reading to a room.
+
+Four principles:
+
+1. **Fast.** Target `300-320` Chinese characters per minute. Keep moving; do
+   not drag sentence endings.
+2. **Chopped.** One breath group is about `8-14` characters. Split long written
+   sentences at commas and periods instead of letting the model guess.
+3. **Heavy.** Raise and hit the key word, then drop the sentence ending.
+   Emphasis lands on opinions, numbers, turns, and punchlines.
+4. **Loose.** Confident and relaxed, with a little edge. Not over-excited, not
+   shouting, not a stage recitation.
+
+| Dimension | Target | Avoid |
+|---|---|---|
+| Speed | `300-320` chars/min | slow, even, official |
+| Phrase | `8-14` chars per breath | long written clauses |
+| Pauses | many `200-500 ms`, few long ones | `500-1000 ms` after every sentence |
+| Pitch | not low; wide range; endings drop | flat, or artificially deepened |
+| Emphasis | dense, sudden key-word lifts | even stress on every word |
+| Attitude | confident, relaxed, slightly wry | polite, round, over-excited |
+| Dynamics | audible RMS movement | compressed into a flat line |
+
+Text transformation:
+
+```text
+Written:  很多人认为，声音克隆只需要把一段录音输入给人工智能，就可以生成任何想要的内容。
+Styled:   很多人以为，声音克隆，就是把录音丢给 AI。完了。真不是。
+```
+
+The second version works because it is shorter, spoken, has a short pause, and
+ends on a punchline. When the user asks for this style, rewrite or segment the
+document this way before generation, unless they explicitly ask to preserve the
+original wording. If preserving wording, add punctuation and paragraph breaks
+instead of rewriting.
+
+Acceptance check: around `300-320` chars/min for the vector baseline, mostly
+short breath groups, many short pauses, clear key-word accents, and no uniform
+"read the script" cadence. The reference route can land faster (about
+`340-360`); raise `duration_factor` if it feels rushed. Do not pitch-shift to
+fake the target speaker; adjust `emo_alpha` and `duration_factor` instead.
+
 ## Step 1: check the environment
 
 Run:

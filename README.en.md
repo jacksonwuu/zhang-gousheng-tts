@@ -39,6 +39,38 @@ Outputs:
 By default they sit next to the source document; if that directory is
 read-only, they go to `~/Documents/zhang-gousheng-tts/`.
 
+## What the style actually sounds like
+
+It is not a deep radio voice and not a calm news-anchor read. Think of a fast,
+relaxed, slightly wry explainer who knows the subject and is talking to one
+person, not reading to a room.
+
+- **Fast:** about 300-320 Chinese characters per minute; keep moving.
+- **Chopped:** one breath group is about 8-14 characters; split long sentences.
+- **Heavy:** hit the key word, then drop the sentence ending.
+- **Loose:** confident and relaxed with a little edge; never over-excited.
+
+| Dimension | Target | Avoid |
+|---|---|---|
+| Speed | 300-320 chars/min | slow, even, official |
+| Phrase | 8-14 chars per breath | long written clauses |
+| Pauses | many 200-500 ms short pauses | 500-1000 ms after every sentence |
+| Pitch | wide range, endings drop | flat or artificially deepened |
+| Emphasis | sudden key-word lifts | even stress on every word |
+| Attitude | confident, relaxed, wry | polite, round, over-excited |
+
+Example:
+
+```text
+Written: 很多人认为，声音克隆只需要把一段录音输入给人工智能，就可以生成任何想要的内容。
+Styled:  很多人以为，声音克隆，就是把录音丢给 AI。完了。真不是。
+```
+
+The style works for opinion pieces, news explainers, walkthroughs, and short
+video voiceovers. It is a poor fit for solemn announcements, eulogies, slow
+lyrical narration, and long academic sentences. It reproduces rhythm and
+delivery only; the voice remains the user's own.
+
 ## Portable skill
 
 This is not tied to one runtime. Any agent that can read `SKILL.md` can use it;

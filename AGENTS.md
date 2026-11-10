@@ -17,6 +17,9 @@ for runtimes that discover `AGENTS.md` but not `SKILL.md`.
   minimum) and wait for explicit approval.
 - Use only the user's own voice or a voice they are explicitly authorized to
   clone. A style reference must never become the voice identity.
+- "Zhang Gousheng style" means fast (300-320 chars/min), chopped (8-14 chars
+  per breath), heavy key-word accents, short pauses, and a relaxed, slightly
+  wry delivery. It is not a deep radio voice or a calm news-anchor read.
 
 ## One-click flow
 
