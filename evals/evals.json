@@ -1,0 +1,35 @@
+{
+  "skill_name": "zhang-gousheng-tts",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我发你一个 mov，里面是我自己说话。帮我把声音提成 15 秒参考，然后用张狗剩那种快节奏、短停顿、有点痞的新闻解说风格，把这段文案读出来：很多人以为声音克隆就是把录音丢给 AI，其实真不是。",
+      "expected_output": "生成一个用户本人音色的 WAV，风格接近张狗剩式快节奏旁白，并报告使用的 emo_alpha、duration_factor 和基本音频指标。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "这条视频有点长，前面还有音乐。别整条丢给模型，帮我自动找一段最干净的 15 秒人声，做成参考音频。",
+      "expected_output": "调用 prepare_reference.py，输出 10-15 秒、单人、无明显静音段的 44.1kHz WAV，并说明选取的时间窗口。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "我有 8 条口播文案，想全部用我自己的声音，但开头两条要更冲，后面几条稳一点。帮我批量生成，并且每条记录参数。",
+      "expected_output": "生成 manifest.jsonl，使用 generate.py 的 --manifest 模式批量输出 WAV，每条允许覆盖 emo_alpha 和 duration_factor，并返回输出清单。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "帮我在这台笔记本上从头安装 IndexTTS，我的磁盘只剩 12GB，内存 16GB。",
+      "expected_output": "先说明模型约 8GB、环境和临时文件还需空间，20GB 是安装安全线；在用户明确接受风险或释放空间前不执行安装，也不自动加 --yes。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我这条视频前面有背景音乐，中间还有别人说话，你直接自动剪 15 秒给我。",
+      "expected_output": "说明自动选段只按响度判断，无法可靠区分音乐和多人声；输出候选窗口及其 speech_ratio/削波/峰值，建议试听并用 --start 指定干净区间。",
+      "files": []
+    }
+  ]
+}
